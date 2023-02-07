@@ -60,22 +60,19 @@ function read_envi_wavelengths(filename::String, nm::Bool=true)
         wavelengths = wavelengths .* 1000
         @info "Converting wavelengths read from $filename to nm from microns."
     end
-        
+
     return wavelengths
 end
 
 function get_good_bands_mask(wavelengths::Array{Float64}, wavelength_pairs)
+
     good_bands = ones(Bool, length(wavelengths))
-
-    for wvp in wavelength_pairs
-        wavelength_diff = wavelengths .- wvp[1]
-        wavelength_diff[wavelength_diff .< 0] .= maximum(filter(!isnan, wavelength_diff))
-        lower_index = nanargmin(wavelength_diff)
-
-        wavelength_diff = wvp[2] .- wavelengths
-        wavelength_diff[wavelength_diff .< 0] .= maximum(filter(!isnan, wavelength_diff))
-        upper_index = nanargmin(wavelength_diff)
-        good_bands[lower_index:upper_index] .= false
+    for (i,wavelength) in enumerate(wavelengths)
+        bad=false
+        for wvp in wavelength_pairs
+            bad = ((wavelength .>= wvp[1]) && (wavelength .<=wvp[2])) || bad
+        end
+        good_bands[i] = !bad
     end
 
     return good_bands
@@ -89,8 +86,8 @@ mutable struct SpectralLibrary
     class_valid_keys
     scale_factor::Float64
     wavelength_regions_ignore
-    SpectralLibrary(file_name::String, class_header_name::String, spectral_starting_column::Int64 = 2, truncate_end_columns::Int64 = 0, class_valid_keys = nothing, 
-                    scale_factor = 1.0, wavelength_regions_ignore= [[0,440],[1310,1490],[1770,2050],[2440,2880]]) = 
+    SpectralLibrary(file_name::String, class_header_name::String, spectral_starting_column::Int64 = 2, truncate_end_columns::Int64 = 0, class_valid_keys = nothing,
+                    scale_factor = 1.0, wavelength_regions_ignore= [[0,440],[1310,1490],[1770,2050],[2440,2880]]) =
                     new(file_name, class_header_name, spectral_starting_column, truncate_end_columns, class_valid_keys, scale_factor, wavelength_regions_ignore)
 
     spectra
@@ -112,7 +109,7 @@ function load_data!(library::SpectralLibrary)
     try
         library.classes = convert(Array{AbstractString}, df[!,library.class_header_name])
     catch e
-        throw(ArgumentError("Could not read classes from endmember library using class key "*library.class_header_name * 
+        throw(ArgumentError("Could not read classes from endmember library using class key "*library.class_header_name *
                             ".  Try adjusting class_header_name, or reworking the library."))
     end
 
